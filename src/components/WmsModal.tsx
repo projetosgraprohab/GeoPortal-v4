@@ -4,8 +4,7 @@ import {
   Globe, Radio, Server, Layers, Plus, X, 
   ExternalLink, Check, AlertCircle, HelpCircle, 
   Sliders, ShieldCheck, Sparkles, Database, Loader2,
-  Search, ChevronDown, ChevronUp, ShieldAlert, Wand2,
-  Filter
+  Search, ChevronDown, ChevronUp, ShieldAlert, Wand2
 } from 'lucide-react';
 import { calculateBoundingBox, detectGeometryType, extractPropertySchemas } from '../utils/geoJsonParser';
 import { fetchPublicJson, getAssetUrl } from '../utils/assetUrl';
@@ -78,63 +77,6 @@ const PRESET_SERVICES: ServicePreset[] = [
     attribution: 'DataGeo SP / DAEE / SIGRH',
     badge: 'Vetor 22 UGRHIs + Metadados',
     bbox: [-53.15, -25.35, -44.11, -19.73]
-  },
-  // Camadas Oficiais OGC WMS (DataGeo SP & IBGE)
-  {
-    id: 'datageo-ortofoto',
-    name: 'DataGeo SP - Ortofotos e Mosaico Aéreo de SP (WMS Oficial)',
-    serviceType: 'wms',
-    category: 'basemap',
-    categoryLabel: 'Imagens Aéreas e Ortofotos',
-    description: 'Mosaico oficial de ortofotocartas aéreas de alta resolução do Estado de São Paulo servido via Web Map Service (WMS) do DataGeo SP / IGC.',
-    url: 'https://datageo.ambiente.sp.gov.br/geoserver/datageo/wms',
-    layers: 'VWM_ORTOFOTO_RGB_2020_IGC',
-    format: 'image/png',
-    attribution: 'DataGeo SP / IGC',
-    badge: 'OGC WMS Ortofoto 2020',
-    bbox: [-53.1, -25.3, -44.1, -19.7]
-  },
-  {
-    id: 'datageo-inventario-florestal',
-    name: 'DataGeo SP - Inventário Florestal e Vegetação Nativa (WMS)',
-    serviceType: 'wms',
-    category: 'meio_ambiente',
-    categoryLabel: 'Meio Ambiente & Vegetação',
-    description: 'Mapeamento oficial dos remanescentes de vegetação nativa do Estado de São Paulo (SIMA / Instituto Florestal). Essencial para análise ambiental GRAPROHAB.',
-    url: 'https://datageo.ambiente.sp.gov.br/geoserver/datageo/wms',
-    layers: 'VWM_INVENTARIO_FLORESTAL_SIMA_2020',
-    format: 'image/png',
-    attribution: 'SIMA / Instituto Florestal SP',
-    badge: 'OGC WMS Vegetação',
-    bbox: [-53.1, -25.3, -44.1, -19.7]
-  },
-  {
-    id: 'datageo-areas-protegidas',
-    name: 'DataGeo SP - Unidades de Conservação e Áreas Protegidas (WMS)',
-    serviceType: 'wms',
-    category: 'meio_ambiente',
-    categoryLabel: 'Meio Ambiente & Vegetação',
-    description: 'Unidades de Conservação de Proteção Integral e de Uso Sustentável (Parques Estaduais, APAs, Reservas) do Estado de São Paulo via WMS do DataGeo.',
-    url: 'https://datageo.ambiente.sp.gov.br/geoserver/datageo/wms',
-    layers: 'VWM_UNIDADE_CONSERVACAO_SIMA',
-    format: 'image/png',
-    attribution: 'DataGeo SP / Fundação Florestal',
-    badge: 'OGC WMS UCs Protegidas',
-    bbox: [-53.1, -25.3, -44.1, -19.7]
-  },
-  {
-    id: 'ibge-bc250',
-    name: 'IBGE - Base Cartográfica Contínua do Brasil 1:250.000 (WMS)',
-    serviceType: 'wms',
-    category: 'brasil',
-    categoryLabel: 'Cartografia Nacional IBGE',
-    description: 'Base cartográfica contínua com rodovias, ferrovias, hidrografia e limites territoriais do Instituto Brasileiro de Geografia e Estatística (IBGE).',
-    url: 'https://geoservicos.ibge.gov.br/geoserver/wms',
-    layers: 'BC250:BC250_Vetor',
-    format: 'image/png',
-    attribution: 'IBGE / INDE',
-    badge: 'OGC WMS Brasil BC250',
-    bbox: [-53.1, -25.3, -44.1, -19.7]
   }
 ];
 
@@ -157,7 +99,6 @@ export const WmsModal: React.FC<WmsModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingPresetId, setLoadingPresetId] = useState<string | null>(null);
   const [successPresetId, setSuccessPresetId] = useState<string | null>(null);
-  const [presetFilter, setPresetFilter] = useState<'all' | 'sp' | 'wms' | 'meio_ambiente'>('all');
 
   // Advanced WMS inspection & diagnostic state
   const [isInspecting, setIsInspecting] = useState(false);
@@ -637,58 +578,12 @@ export const WmsModal: React.FC<WmsModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {activeTab === 'presets' ? (
             <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 mb-1">
-                <span>Selecione uma fonte geoespacial oficial ou temática para carregar diretamente no mapa:</span>
-                
-                {/* Category Filter Pills */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setPresetFilter('all')}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                      presetFilter === 'all'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    Todos ({PRESET_SERVICES.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPresetFilter('wms')}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
-                      presetFilter === 'wms'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                    }`}
-                  >
-                    <Globe className="w-3 h-3" />
-                    <span>WMS Oficiais</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPresetFilter('sp')}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
-                      presetFilter === 'sp'
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                    }`}
-                  >
-                    <Database className="w-3 h-3" />
-                    <span>Vetores SP</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPresetFilter('meio_ambiente')}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                      presetFilter === 'meio_ambiente'
-                        ? 'bg-amber-600 text-white'
-                        : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                    }`}
-                  >
-                    Recursos Hídricos / Meio Ambiente
-                  </button>
-                </div>
+              <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                <span>Selecione uma base vetorial temática oficial para carregar diretamente no mapa:</span>
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Database className="w-3 h-3 text-emerald-600" />
+                  {PRESET_SERVICES.length} Camadas Vetoriais
+                </span>
               </div>
 
               {errorMsg && (
@@ -702,15 +597,8 @@ export const WmsModal: React.FC<WmsModalProps> = ({
               )}
 
               <div className="grid grid-cols-1 gap-2.5">
-                {PRESET_SERVICES.filter(preset => {
-                  if (presetFilter === 'all') return true;
-                  if (presetFilter === 'wms') return preset.serviceType === 'wms';
-                  if (presetFilter === 'sp') return preset.category === 'sp';
-                  if (presetFilter === 'meio_ambiente') return preset.category === 'meio_ambiente';
-                  return true;
-                }).map((preset) => {
+                {PRESET_SERVICES.map((preset) => {
                   const isSuccess = successPresetId === preset.id;
-                  const isWms = preset.serviceType === 'wms';
                   return (
                     <div
                       key={preset.id}
@@ -721,17 +609,10 @@ export const WmsModal: React.FC<WmsModalProps> = ({
                           <span className="font-semibold text-xs text-slate-900">
                             {preset.name}
                           </span>
-                          {isWms ? (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
-                              <Globe className="w-2.5 h-2.5 text-blue-600" />
-                              OGC WMS
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                              <Database className="w-2.5 h-2.5 text-emerald-600" />
-                              Vetor Interativo
-                            </span>
-                          )}
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            <Database className="w-2.5 h-2.5 text-emerald-600" />
+                            Vetor Interativo
+                          </span>
                           <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
                             {preset.attribution}
                           </span>
