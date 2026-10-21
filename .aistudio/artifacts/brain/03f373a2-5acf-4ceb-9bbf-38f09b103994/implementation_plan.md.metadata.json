@@ -1,0 +1,6 @@
+{
+  "summary":  "Plano de implementação para a divisão da visualização das camadas no LayerManager entre modo simples (padrão) e modo expandido (com ferramentas completas de GIS, opacidade, filtros e legenda).",
+  "updatedAt":  "2026-10-20T17:42:12.460131771Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
