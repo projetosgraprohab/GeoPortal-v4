@@ -5,30 +5,16 @@
       "arquivo": "data/condominios_protocolados.geojson",
       "visivel": true,
       "opacity": 1,
-      "popupTitleField": "NOME DO EMPREENDIMENTO",
-      "popupVisibleFields": [
-        "ANO ENTRADA",
-        "ÁREA TOTAL DA GLEBA/M²",
-        "DATA DE ENTRADA",
-        "DATA DO CERTIFICADO",
-        "LOCALIZAÇÃO/ENDEREÇO",
-        "MUNICIPIO",
-        "Nº DE UNIDADES HABITACIONAIS",
-        "Nº DO CERTIFICADO",
-        "NOME DO EMPREENDIMENTO",
-        "PROPRIETARIO",
-        "PROTOCOLO",
-        "SITUAÇÃO"
-      ],
+      "popupVisibleFields": [],
       "popupFieldOrder": [
         "PROTOCOLO",
         "ANO ENTRADA",
         "MUNICIPIO",
         "PROPRIETARIO",
-        "NOME DO EMPREENDIMENTO",
         "LOCALIZAÇÃO/ENDEREÇO",
-        "ÁREA TOTAL DA GLEBA/M²",
+        "NOME DO EMPREENDIMENTO",
         "Nº DE UNIDADES HABITACIONAIS",
+        "ÁREA TOTAL DA GLEBA/M²",
         "DATA DE ENTRADA",
         "DATA DO CERTIFICADO",
         "Nº DO CERTIFICADO",
@@ -42,85 +28,27 @@
         "strokeOpacity": 0.9,
         "pointRadius": 7,
         "pointShape": "circle",
-        "smoothFactor": 1
+        "smoothFactor": 2.5
       }
     },
     {
-      "nome": "Loteamentos e Cj. Habitacionais",
-      "arquivo": "data/loteamentos_e_cj_habitacionais.geojson",
-      "visivel": true,
-      "opacity": 1,
-      "popupTitleField": "NOME DO EMPREENDIMENTO",
-      "popupVisibleFields": [
-        "ANO ENTRADA",
-        "ÁREA TOTAL DA GLEBA/M²",
-        "DATA DE ENTRADA",
-        "DATA DO CERTIFICADO",
-        "LOCALIZAÇÃO/ENDEREÇO",
-        "MUNICIPIO",
-        "Nº DE UNIDADES HABITACIONAIS",
-        "Nº DO CERTIFICADO",
-        "NOME DO EMPREENDIMENTO",
-        "PROPRIETARIO",
-        "PROTOCOLO",
-        "SITUAÇÃO"
-      ],
-      "popupFieldOrder": [
-        "PROTOCOLO",
-        "ANO ENTRADA",
-        "MUNICIPIO",
-        "PROPRIETARIO",
-        "NOME DO EMPREENDIMENTO",
-        "LOCALIZAÇÃO/ENDEREÇO",
-        "ÁREA TOTAL DA GLEBA/M²",
-        "Nº DE UNIDADES HABITACIONAIS",
-        "DATA DE ENTRADA",
-        "DATA DO CERTIFICADO",
-        "Nº DO CERTIFICADO",
-        "SITUAÇÃO"
-      ],
-      "estilo": {
-        "fillColor": "#ef4444",
-        "strokeColor": "#ef4444",
-        "strokeWidth": 2,
-        "fillOpacity": 0.45,
-        "strokeOpacity": 0.9,
-        "pointRadius": 7,
-        "pointShape": "circle",
-        "smoothFactor": 4.5
-      }
-    },
-    {
-      "nome": "Condomínios Dispensados",
+      "nome": "Condominios Dispensados",
       "arquivo": "data/condominios_dispensados.geojson",
       "visivel": true,
       "opacity": 1,
-      "popupTitleField": "NOME DO EMPREENDIMENTO",
-      "popupVisibleFields": [
-        "ANO ENTRADA",
-        "ÁREA TOTAL DA GLEBA/M²",
-        "DATA DO CERTIFICADO",
-        "EXPEDIENTE DISPENSA",
-        "LOCALIZAÇÃO/ENDEREÇO",
-        "MUNICIPIO",
-        "Nº DE UNIDADES HABITACIONAIS",
-        "NOME DO EMPREENDIMENTO",
-        "PROPRIETARIO",
-        "SITUAÇÃO",
-        "TIPOLOGIA DA CONSTRUÇÃO"
-      ],
+      "popupVisibleFields": [],
       "popupFieldOrder": [
         "EXPEDIENTE DISPENSA",
         "ANO ENTRADA",
         "MUNICIPIO",
         "PROPRIETARIO",
-        "LOCALIZAÇÃO/ENDEREÇO",
         "NOME DO EMPREENDIMENTO",
-        "ÁREA TOTAL DA GLEBA/M²",
+        "LOCALIZAÇÃO/ENDEREÇO",
         "Nº DE UNIDADES HABITACIONAIS",
+        "ÁREA TOTAL DA GLEBA/M²",
+        "TIPOLOGIA DA CONSTRUÇÃO",
         "DATA DO CERTIFICADO",
-        "SITUAÇÃO",
-        "TIPOLOGIA DA CONSTRUÇÃO"
+        "SITUAÇÃO"
       ],
       "estilo": {
         "fillColor": "#eab308",
@@ -130,7 +58,7 @@
         "strokeOpacity": 0.9,
         "pointRadius": 7,
         "pointShape": "circle",
-        "smoothFactor": 1
+        "smoothFactor": 2.5
       }
     },
     {
@@ -145,11 +73,11 @@
         "MUNICIPIO",
         "PROPRIETARIO",
         "LOCALIZAÇÃO/ENDEREÇO",
-        "ÁREA TOTAL DA GLEBA/M²",
         "Nº DE UNIDADES HABITACIONAIS",
+        "ÁREA TOTAL DA GLEBA/M²",
+        "TIPOLOGIA DA CONSTRUÇÃO",
         "DATA DO CERTIFICADO",
-        "SITUAÇÃO",
-        "TIPOLOGIA DA CONSTRUÇÃO"
+        "SITUAÇÃO"
       ],
       "estilo": {
         "fillColor": "#10b981",
@@ -159,7 +87,7 @@
         "strokeOpacity": 0.9,
         "pointRadius": 7,
         "pointShape": "circle",
-        "smoothFactor": 1
+        "smoothFactor": 2.5
       }
     },
     {
@@ -168,16 +96,30 @@
       "visivel": true,
       "opacity": 1,
       "popupVisibleFields": [],
-      "popupFieldOrder": [],
+      "popupFieldOrder": [
+        "PROTOCOLO",
+        "ANO ENTRADA",
+        "MUNICIPIO",
+        "PROPRIETARIO",
+        "LOCALIZAÇÃO/ENDEREÇO",
+        "NOME DO EMPREENDIMENTO",
+        "Nº DE UNIDADES HABITACIONAIS",
+        "ÁREA TOTAL DA GLEBA/M²",
+        "DATA DE ENTRADA",
+        "DATA DO CERTIFICADO",
+        "Nº DO CERTIFICADO",
+        "SITUAÇÃO",
+        "TIPO DE EMPREENDIMENTO"
+      ],
       "estilo": {
         "fillColor": "#0f172a",
-        "strokeColor": "#0f172a",
+        "strokeColor": "#64748b",
         "strokeWidth": 2,
-        "fillOpacity": 0.45,
+        "fillOpacity": 0.15,
         "strokeOpacity": 0.9,
         "pointRadius": 7,
         "pointShape": "circle",
-        "smoothFactor": 1
+        "smoothFactor": 2.5
       }
     }
   ]

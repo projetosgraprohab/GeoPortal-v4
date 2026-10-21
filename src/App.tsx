@@ -31,6 +31,7 @@ import {
   extractPropertySchemas, filterFeatures, parseNumericValue,
   isServiceLayer 
 } from './utils/geoJsonParser';
+import { fetchPublicJson, getAssetUrl } from './utils/assetUrl';
 import { PanelRight, PanelRightClose, CheckCircle2, AlertCircle, Upload, MapPin } from 'lucide-react';
 
 const DEFAULT_LAYER_COLORS = [
@@ -227,68 +228,98 @@ export default function App() {
 
       // 2. Only if no persistent state exists (first-time initialization), check public/mapas-config.json
       try {
-        const baseUrl = import.meta.env.BASE_URL || './';
-        const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-        const configUrl = `${normalizedBase}mapas-config.json`;
-        const res = await fetch(configUrl);
-        if (res.ok) {
-          const config = await res.json();
-          if (config && Array.isArray(config.camadas_fixas) && config.camadas_fixas?.length > 0) {
-            const staticLayers: GisLayer[] = [];
-            
-            for (let i = 0; i < config.camadas_fixas?.length; i++) {
-              const item = config.camadas_fixas[i];
-              if (item.arquivo) {
-                let fileUrl = item.arquivo;
-                if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
-                  const cleanPath = item.arquivo.replace(/^\.?\//, '');
-                  fileUrl = `${normalizedBase}${cleanPath}`;
-                }
-                
-                try {
-                  const dataRes = await fetch(fileUrl);
-                  if (dataRes.ok) {
-                    const text = await dataRes.text();
-                    if (text && (text.trim().startsWith('{') || text.trim().startsWith('['))) {
-                      const geojson = JSON.parse(text);
-                      if (geojson && (geojson.type === 'FeatureCollection' || geojson.features)) {
-                        const lyr = createLayerFromGeoJson(item.nome || `Camada ${i + 1}`, geojson);
-                        if (item.visivel !== undefined) {
-                          lyr.visible = Boolean(item.visivel);
-                        }
-                        if (item.estilo) {
-                          lyr.style = { ...lyr.style, ...item.estilo };
-                        }
-                        if (item.opacity !== undefined) {
-                          lyr.opacity = Number(item.opacity);
-                        }
-                        if (item.popupTitleField) {
-                          lyr.popupTitleField = item.popupTitleField;
-                        }
-                        if (Array.isArray(item.popupVisibleFields)) {
-                          lyr.popupVisibleFields = item.popupVisibleFields;
-                        }
-                        if (Array.isArray(item.popupFieldOrder)) {
-                          lyr.popupFieldOrder = item.popupFieldOrder;
-                        }
-                        staticLayers.push(lyr);
-                      }
-                    }
-                  }
-                } catch (fetchErr) {
-                  console.warn(`Não foi possível processar arquivo estático ${item.arquivo}:`, fetchErr);
-                }
-              }
+        const config = await fetchPublicJson('mapas-config.json');
+        if (config && Array.isArray(config.camadas_fixas) && config.camadas_fixas?.length > 0) {
+          const staticLayers: GisLayer[] = [];
+          
+          for (let i = 0; i < config.camadas_fixas?.length; i++) {
+            const item = config.camadas_fixas[i];
+
+            // Suporte a camadas WMS pré-configuradas no mapas-config.json
+            if (item.serviceType === 'wms' && item.wmsConfig) {
+              const wmsLyr: GisLayer = {
+                id: `layer_fixed_wms_${i}_${Date.now()}`,
+                name: item.nome || `Camada WMS ${i + 1}`,
+                geometryType: 'Raster',
+                serviceType: 'wms',
+                isServiceLayer: true,
+                data: { type: 'FeatureCollection', features: [] },
+                visible: item.visivel !== undefined ? Boolean(item.visivel) : true,
+                opacity: item.opacity !== undefined ? Number(item.opacity) : 0.85,
+                style: item.estilo || { fillColor: '#38bdf8', strokeColor: '#0284c7', strokeWidth: 2, fillOpacity: 0.5, strokeOpacity: 0.8, pointRadius: 6, pointShape: 'circle' },
+                filters: [],
+                featureCount: 0,
+                filteredCount: 0,
+                propertiesSchema: [],
+                bbox: item.bbox || [-53.1, -25.3, -44.1, -19.7],
+                createdAt: Date.now(),
+                wmsConfig: item.wmsConfig
+              };
+              staticLayers.push(wmsLyr);
+              continue;
             }
 
-            if (staticLayers?.length > 0) {
-              setLayers(staticLayers);
-              setPublishedLayers(staticLayers);
-              setActiveLayerId(staticLayers[0].id);
-              await localforage.setItem('graprohab_layers', staticLayers);
-              await localforage.setItem('graprohab_initialized', true);
-              return;
+            // Suporte a camadas XYZ Tile pré-configuradas no mapas-config.json
+            if (item.serviceType === 'xyz' && item.xyzConfig) {
+              const xyzLyr: GisLayer = {
+                id: `layer_fixed_xyz_${i}_${Date.now()}`,
+                name: item.nome || `Camada XYZ ${i + 1}`,
+                geometryType: 'Raster',
+                serviceType: 'xyz',
+                isServiceLayer: true,
+                data: { type: 'FeatureCollection', features: [] },
+                visible: item.visivel !== undefined ? Boolean(item.visivel) : true,
+                opacity: item.opacity !== undefined ? Number(item.opacity) : 0.75,
+                style: item.estilo || { fillColor: '#38bdf8', strokeColor: '#0284c7', strokeWidth: 2, fillOpacity: 0.5, strokeOpacity: 0.8, pointRadius: 6, pointShape: 'circle' },
+                filters: [],
+                featureCount: 0,
+                filteredCount: 0,
+                propertiesSchema: [],
+                bbox: item.bbox || [-53.1, -25.3, -44.1, -19.7],
+                createdAt: Date.now(),
+                xyzConfig: item.xyzConfig
+              };
+              staticLayers.push(xyzLyr);
+              continue;
             }
+
+            if (item.arquivo) {
+              try {
+                const geojson = await fetchPublicJson(item.arquivo);
+                if (geojson && (geojson.type === 'FeatureCollection' || geojson.features)) {
+                  const lyr = createLayerFromGeoJson(item.nome || `Camada ${i + 1}`, geojson);
+                  if (item.visivel !== undefined) {
+                    lyr.visible = Boolean(item.visivel);
+                  }
+                  if (item.estilo) {
+                    lyr.style = { ...lyr.style, ...item.estilo };
+                  }
+                  if (item.opacity !== undefined) {
+                    lyr.opacity = Number(item.opacity);
+                  }
+                  if (item.popupTitleField) {
+                    lyr.popupTitleField = item.popupTitleField;
+                  }
+                  if (Array.isArray(item.popupVisibleFields)) {
+                    lyr.popupVisibleFields = item.popupVisibleFields;
+                  }
+                  if (Array.isArray(item.popupFieldOrder)) {
+                    lyr.popupFieldOrder = item.popupFieldOrder;
+                  }
+                  staticLayers.push(lyr);
+                }
+              } catch (fetchErr) {
+                console.warn(`Não foi possível processar arquivo estático ${item.arquivo}:`, fetchErr);
+              }
+            }
+          }
+          if (staticLayers?.length > 0) {
+            setLayers(staticLayers);
+            setPublishedLayers(staticLayers);
+            setActiveLayerId(staticLayers[0].id);
+            await localforage.setItem('graprohab_layers', staticLayers);
+            await localforage.setItem('graprohab_initialized', true);
+            return;
           }
         }
       } catch (err) {
@@ -322,13 +353,12 @@ export default function App() {
   // Ensure APM / Mananciais layer is rendered purely as hollow perimeter (vazado)
   useEffect(() => {
     const apmLayer = layers.find(l => 
-      (l.serviceType === 'wms' && (l.wmsConfig?.layers?.includes('APRMB') || l.name?.toLowerCase().includes('mananciais') || l.name?.toLowerCase().includes('apm'))) ||
+      (l.serviceType === 'wms' && l.wmsConfig?.layers?.includes('APRMB')) ||
       (l.name?.toLowerCase().includes('mananciais') && l.style?.fillOpacity > 0)
     );
 
     if (apmLayer) {
-      fetch('/data/mananciais_apm_sp.geojson')
-        .then(res => res.json())
+      fetchPublicJson('data/mananciais_apm_sp.geojson')
         .then(geojson => {
           const features = geojson.features || [];
           if (features.length === 0) return;
@@ -378,8 +408,7 @@ export default function App() {
     );
 
     if (munLayer) {
-      fetch('/data/sp_municipios_ibge.geojson')
-        .then(res => res.json())
+      fetchPublicJson('data/sp_municipios_ibge.geojson')
         .then(geojson => {
           const features = geojson.features || [];
           if (features.length === 0) return;
@@ -415,8 +444,7 @@ export default function App() {
     );
 
     if (stateLayer) {
-      fetch('/data/sp_limite_estadual.geojson')
-        .then(res => res.json())
+      fetchPublicJson('data/sp_limite_estadual.geojson')
         .then(geojson => {
           const features = geojson.features || [];
           if (features.length === 0) return;
@@ -442,15 +470,14 @@ export default function App() {
         .catch(err => console.error('Erro ao enriquecer metadados estaduais:', err));
     }
 
-    // Auto-enrich UGRHI / Bacias layer if it's WMS or lacks rich metadata
+    // Auto-enrich UGRHI / Bacias layer if it's the legacy broken WMS or lacks rich metadata
     const baciasLayer = layers.find(l => 
-      (l.serviceType === 'wms' && (l.url?.includes('LimiteUgrhiDAEE') || l.wmsParams?.layers?.includes('LimiteUgrhiDAEE') || l.name?.toLowerCase().includes('bacias') || l.name?.toLowerCase().includes('ugrhi'))) ||
+      (l.serviceType === 'wms' && (l.url?.includes('LimiteUgrhiDAEE') || l.wmsParams?.layers?.includes('LimiteUgrhiDAEE'))) ||
       (l.serviceType === 'geojson' && (l.name?.toLowerCase().includes('bacias') || l.name?.toLowerCase().includes('ugrhi')) && (!l.data?.features?.[0]?.properties?.ugrhi || !l.data?.features?.[0]?.properties?.situacao_hidrica))
     );
 
     if (baciasLayer) {
-      fetch('/data/sp_ugrhi_bacias.geojson')
-        .then(res => res.json())
+      fetchPublicJson('data/sp_ugrhi_bacias.geojson')
         .then(geojson => {
           const features = geojson.features || [];
           if (features.length === 0) return;
@@ -460,7 +487,7 @@ export default function App() {
             description: 'Todas as 22 UGRHIs (Unidades de Gerenciamento de Recursos Hídricos do Estado de SP - DAEE / SIGRH) enriquecidas com metadados cadastrais e regulatórios completos (Comitê CBH, Bacia Hidrográfica, Sede, Rios Principais, Situação Hídrica e Diretrizes GRAPROHAB).',
             serviceType: 'geojson',
             isServiceLayer: true,
-            url: '/data/sp_ugrhi_bacias.geojson',
+            url: 'data/sp_ugrhi_bacias.geojson',
             data: geojson,
             featureCount: features.length,
             filteredCount: features.length,

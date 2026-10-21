@@ -479,6 +479,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           sanitizedUrl = 'https://datageo.ambiente.sp.gov.br/geoserver/datageo/wms';
         }
 
+        // Upgrade HTTP to HTTPS on secure origins (such as GitHub Pages) to prevent Mixed Content blocking
+        if (typeof window !== 'undefined' && window.location.protocol === 'https:' && sanitizedUrl.startsWith('http://')) {
+          sanitizedUrl = sanitizedUrl.replace(/^http:\/\//i, 'https://');
+        }
+
         const wmsLayer = L.tileLayer.wms(sanitizedUrl, {
           layers: actualLayers,
           format: layer.wmsConfig.format || 'image/png',

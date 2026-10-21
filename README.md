@@ -8,6 +8,9 @@
 
 O **Graproh@b GeoPortal** é uma aplicação web moderna e interativa desenvolvida para centralizar, visualizar e analisar dados territoriais, processos de parcelamento do solo, loteamentos e desmembramentos no Estado de São Paulo.
 
+O portal possui dois ambientes integrados:
+1. **Consulta Pública (Cidadão):** Interface limpa e acessível com busca por município, empreendedor, protocolo, ano de entrada e expediente de dispensa.
+2. **Ambiente Técnico (Gestor):** Acesso com controle por senha para importação de novos dados GeoJSON/KML/CSV, personalização temática de camadas, gerenciamento de colunas, ordenação de campos e persistência.
 
 ---
 
@@ -47,3 +50,53 @@ O **Graproh@b GeoPortal** é uma aplicação web moderna e interativa desenvolvi
 * **CI/CD:**
   * GitHub Actions para build e deploy automatizado no GitHub Pages.
 
+---
+
+## 🚀 Como Executar Localmente
+
+### Pré-requisitos
+* **Node.js** versão 20 ou superior
+* **npm** ou gerenciador de pacotes equivalente
+
+### 1. Clonar o repositório
+```bash
+git clone https://github.com/SEU-USUARIO/graprohab-geoportal.git
+cd graprohab-geoportal
+```
+
+### 2. Instalar as dependências
+```bash
+npm install
+```
+
+### 3. Configurar as Variáveis de Ambiente
+Copie o arquivo de exemplo `.env.example` para `.env`:
+```bash
+cp .env.example .env
+```
+
+### 4. Iniciar o servidor de desenvolvimento
+```bash
+npm run dev
+```
+O portal estará disponível em: `http://localhost:3000`
+
+---
+
+## 📦 Build e Produção
+
+Para gerar a versão otimizada de produção:
+```bash
+npm run build
+```
+
+Para rodar o servidor compilado:
+```bash
+npm start
+```
+
+---
+
+## 📄 Licença
+
+Distribuído sob licença aberta para fins educacionais, públicos e governamentais.

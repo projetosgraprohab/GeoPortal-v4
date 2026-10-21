@@ -83,6 +83,37 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         for (let i = 0; i < layers?.length; i++) {
           const lyr = layers[i];
+
+          // 1. Camadas de Serviço WMS
+          if (lyr.serviceType === 'wms' && lyr.wmsConfig) {
+            configJson.camadas_fixas.push({
+              nome: lyr.name,
+              serviceType: 'wms',
+              isServiceLayer: true,
+              wmsConfig: lyr.wmsConfig,
+              visivel: lyr.visible,
+              opacity: lyr.opacity,
+              bbox: lyr.bbox,
+              estilo: lyr.style
+            });
+            continue;
+          }
+
+          // 2. Camadas de Serviço XYZ Tile
+          if (lyr.serviceType === 'xyz' && lyr.xyzConfig) {
+            configJson.camadas_fixas.push({
+              nome: lyr.name,
+              serviceType: 'xyz',
+              isServiceLayer: true,
+              xyzConfig: lyr.xyzConfig,
+              visivel: lyr.visible,
+              opacity: lyr.opacity,
+              estilo: lyr.style
+            });
+            continue;
+          }
+
+          // 3. Camadas Vetoriais (GeoJSON)
           let safeName = lyr.name
             .toLowerCase()
             .normalize('NFD')
@@ -115,16 +146,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         }
 
         zip.file('mapas-config.json', JSON.stringify(configJson, null, 2));
-        zip.file('INSTRUCOES_GITHUB.txt', `COMO USAR E ATUALIZAR AS CAMADAS NO SEU GITHUB:
+        zip.file('INSTRUCOES_GITHUB.txt', `COMO USAR E ATUALIZAR AS CAMADAS NO SEU GITHUB PAGES:
 
 1. Extraia este arquivo ZIP baixado.
-2. Você verá o arquivo 'mapas-config.json' e a pasta 'data/' contendo suas camadas em formato .geojson.
-3. Copie 'mapas-config.json' e a pasta 'data/' para dentro da pasta 'public/' do repositório no GitHub.
-4. Faça commit e push no GitHub.
+2. Você verá o arquivo 'mapas-config.json' e a pasta 'data/' contendo suas camadas (.geojson e configurações WMS).
+3. Copie 'mapas-config.json' e a pasta 'data/' para dentro da pasta 'public/' do seu repositório no GitHub.
+4. Faça commit e push no GitHub (git add public/ && git commit -m "Atualiza camadas" && git push).
 
-COMO ATUALIZAR MENSALMENTE:
-- Basta substituir os arquivos .geojson dentro da pasta 'public/data/' no seu GitHub por arquivos atualizados de mesmo nome.
-- O GitHub Actions recompilará e atualizará o site automaticamente em menos de 1 minuto!`);
+COMO ATUALIZAR PERIODICAMENTE:
+- Para atualizar uma camada existente, basta substituir o arquivo correspondente em 'public/data/' no GitHub.
+- Para adicionar ou reorganizar camadas WMS e estilos, você pode exportar este pacote novamente ou editar o 'public/mapas-config.json'.
+- O GitHub Actions recompilará e publicará o site automaticamente no GitHub Pages em menos de 1 minuto!`);
 
         blob = await zip.generateAsync({ type: 'blob' });
         downloadExt = '.zip';
