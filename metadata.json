@@ -1,5 +1,5 @@
 {
-  "name": "Remix GeoGRAPROHAB SP (beta)",
+  "name": "GeoPortal V4",
   "description": "Geoportal de Análise e Aprovação de Projetos Habitacionais do Estado de São Paulo (GRAPROHAB). Visualização interativa de polígonos de empreendimentos, controle de acesso por senha para gestores, consulta pública de processos e fichas técnicas.",
   "requestFramePermissions": [
     "geolocation"

@@ -53,6 +53,7 @@ export default function App() {
   const [activeBasemap, setActiveBasemap] = useState<BasemapOption>(BASEMAPS[0]);
 
   const [selectedFeature, setSelectedFeature] = useState<GeoJSON.Feature | null>(null);
+  const [fitBoundsTrigger, setFitBoundsTrigger] = useState<number>(0);
 
   // Mode: Full static geoportal access
   const appMode: AppMode = 'gestor';
@@ -83,7 +84,6 @@ export default function App() {
   const [consumerProtocolo, setConsumerProtocolo] = useState('');
   const [consumerDispensa, setConsumerDispensa] = useState('');
   const [consumerAnoRange, setConsumerAnoRange] = useState<[number, number] | null>(null);
-  const [fitBoundsTrigger, setFitBoundsTrigger] = useState(0);
 
   // UI layout
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -1154,6 +1154,7 @@ export default function App() {
     showToast('Filtros redefinidos.');
   };
 
+
   const handleSelectFeatureOnMap = (feature: GeoJSON.Feature) => {
     setSelectedFeature(feature);
   };
@@ -1613,6 +1614,7 @@ export default function App() {
               setIsAttributeTableOpen(true);
             }}
           />
+
         </main>
 
         {/* Right Layer Manager Sidebar */}
