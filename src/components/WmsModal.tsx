@@ -4,7 +4,8 @@ import {
   Globe, Radio, Server, Layers, Plus, X, 
   ExternalLink, Check, AlertCircle, HelpCircle, 
   Sliders, ShieldCheck, Sparkles, Database, Loader2,
-  Search, ChevronDown, ChevronUp, ShieldAlert, Wand2
+  Search, ChevronDown, ChevronUp, ShieldAlert, Wand2,
+  SlidersHorizontal, ArrowRight
 } from 'lucide-react';
 import { calculateBoundingBox, detectGeometryType, extractPropertySchemas } from '../utils/geoJsonParser';
 import { fetchPublicJson, getAssetUrl } from '../utils/assetUrl';
@@ -100,6 +101,9 @@ export const WmsModal: React.FC<WmsModalProps> = ({
   const [loadingPresetId, setLoadingPresetId] = useState<string | null>(null);
   const [successPresetId, setSuccessPresetId] = useState<string | null>(null);
 
+  // Simplified custom tab state
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+
   // Advanced WMS inspection & diagnostic state
   const [isInspecting, setIsInspecting] = useState(false);
   const [discoveredLayers, setDiscoveredLayers] = useState<Array<{ name: string; title: string; abstract?: string }>>([]);
@@ -116,43 +120,98 @@ export const WmsModal: React.FC<WmsModalProps> = ({
     setErrorMsg(null);
     setInspectMessage(null);
 
-    // Auto-detect DataGeo serviceTranslator pattern:
-    // e.g.: https://datageo.ambiente.sp.gov.br/serviceTranslator/rest/getXml/Geoserver_Publico/DISTRITO_MUNICIPAL_SP_SMDU/1435155780542/wms
-    const translatorMatch = val.match(/\/serviceTranslator\/rest\/getXml\/[^/]+\/([^/?]+)/i);
-    if (translatorMatch && translatorMatch[1]) {
-      const extractedLayer = translatorMatch[1].trim();
-      if (!wmsLayers || wmsLayers.trim() === '') {
-        setWmsLayers(extractedLayer);
+    const valTrim = val.trim();
+    if (!valTrim) return;
+
+    // 1. Auto-detect XYZ Tile Server
+    if (valTrim.includes('{z}') && valTrim.includes('{x}')) {
+      setServiceType('xyz');
+      if (!layerName || layerName.trim() === '' || layerName === 'Nova Camada Web' || layerName.startsWith('Serviço')) {
+        if (valTrim.toLowerCase().includes('openstreetmap') || valTrim.toLowerCase().includes('tile.openstreetmap')) {
+          setLayerName('OpenStreetMap Standard');
+        } else if (valTrim.toLowerCase().includes('cartodb') || valTrim.toLowerCase().includes('basemaps.cartocdn')) {
+          setLayerName('CartoDB Basemap');
+        } else {
+          setLayerName('Mosaico de Satélite / XYZ');
+        }
       }
-      if (!layerName || layerName.trim() === '' || layerName === 'Nova Camada Web') {
+      return;
+    }
+
+    // 2. Auto-detect GeoJSON / REST Vector API
+    if (
+      valTrim.toLowerCase().endsWith('.geojson') || 
+      valTrim.toLowerCase().endsWith('.json') || 
+      valTrim.toLowerCase().includes('outputformat=application/json') ||
+      valTrim.toLowerCase().includes('outputformat=json')
+    ) {
+      setServiceType('geojson');
+      if (!layerName || layerName.trim() === '' || layerName === 'Nova Camada Web' || layerName.startsWith('Serviço')) {
+        const parts = valTrim.split('?')[0].split('/');
+        const lastPart = parts[parts.length - 1].replace(/\.geojson|\.json/gi, '');
+        if (lastPart) {
+          const friendly = lastPart.replace(/_/g, ' ').replace(/(?:^|\s)\S/g, a => a.toUpperCase());
+          setLayerName(friendly);
+        } else {
+          setLayerName('Camada Vetorial GeoJSON');
+        }
+      }
+      return;
+    }
+
+    // 3. Auto-detect DataGeo serviceTranslator pattern:
+    // e.g.: https://datageo.ambiente.sp.gov.br/serviceTranslator/rest/getXml/Geoserver_Publico/DISTRITO_MUNICIPAL_SP_SMDU/1435155780542/wms
+    const translatorMatch = valTrim.match(/\/serviceTranslator\/rest\/getXml\/[^/]+\/([^/?]+)/i);
+    if (translatorMatch && translatorMatch[1]) {
+      setServiceType('wms');
+      const extractedLayer = translatorMatch[1].trim();
+      setWmsLayers(extractedLayer);
+      if (!layerName || layerName.trim() === '' || layerName === 'Nova Camada Web' || layerName.startsWith('Serviço')) {
         const friendlyName = extractedLayer
           .replace(/_/g, ' ')
           .toLowerCase()
           .replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
         setLayerName(friendlyName);
       }
+      return;
     }
 
-    // Auto-detect parameters if user pasted a full WMS query URL
-    if (serviceType === 'wms' && val.includes('?')) {
-      try {
-        const queryStr = val.substring(val.indexOf('?') + 1);
-        const params = new URLSearchParams(queryStr);
-        const layersParam = params.get('LAYERS') || params.get('layers') || params.get('Layers');
-        const versionParam = params.get('VERSION') || params.get('version');
-        const formatParam = params.get('FORMAT') || params.get('format');
+    // 4. Default to OGC WMS if it has wms/geoserver keywords or query string
+    if (
+      valTrim.toLowerCase().includes('wms') || 
+      valTrim.toLowerCase().includes('geoserver') || 
+      valTrim.toLowerCase().includes('mapserver') || 
+      valTrim.includes('?')
+    ) {
+      setServiceType('wms');
+      if (valTrim.includes('?')) {
+        try {
+          const queryStr = valTrim.substring(valTrim.indexOf('?') + 1);
+          const params = new URLSearchParams(queryStr);
+          const layersParam = params.get('LAYERS') || params.get('layers') || params.get('Layers');
+          const versionParam = params.get('VERSION') || params.get('version');
+          const formatParam = params.get('FORMAT') || params.get('format');
 
-        if (layersParam && (!wmsLayers || wmsLayers.trim() === '')) {
-          setWmsLayers(layersParam);
+          if (layersParam) {
+            setWmsLayers(layersParam);
+            if (!layerName || layerName.trim() === '' || layerName === 'Nova Camada Web' || layerName.startsWith('Serviço')) {
+              const friendlyName = layersParam
+                .replace(/^[a-zA-Z0-9_-]+:/, '')
+                .replace(/_/g, ' ')
+                .toLowerCase()
+                .replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+              setLayerName(friendlyName);
+            }
+          }
+          if (versionParam && (versionParam === '1.1.1' || versionParam === '1.3.0')) {
+            setWmsVersion(versionParam);
+          }
+          if (formatParam) {
+            setWmsFormat(formatParam);
+          }
+        } catch (e) {
+          // Fallback silently if query string is non-standard
         }
-        if (versionParam && (versionParam === '1.1.1' || versionParam === '1.3.0')) {
-          setWmsVersion(versionParam);
-        }
-        if (formatParam) {
-          setWmsFormat(formatParam);
-        }
-      } catch (e) {
-        // Fallback silently if query string is non-standard
       }
     }
   };
@@ -409,7 +468,8 @@ export const WmsModal: React.FC<WmsModalProps> = ({
     }
 
     if (serviceType === 'wms' && !wmsLayers.trim()) {
-      setErrorMsg('Para serviços WMS, é necessário especificar o nome técnico da camada (parâmetro LAYERS). Ex: workspace:nome_da_camada');
+      setShowAdvancedOptions(true);
+      setErrorMsg('Para serviços OGC WMS, especifique o nome técnico da camada (LAYERS) nas Opções Avançadas ou clique em "Buscar Camadas no Servidor".');
       return;
     }
 
@@ -667,346 +727,302 @@ export const WmsModal: React.FC<WmsModalProps> = ({
             </div>
           ) : (
             <form onSubmit={handleCustomSubmit} className="space-y-4">
-              {/* Service Type Radio Cards */}
+              {/* URL Input (Campo Principal com Auto-detecção) */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                  Tipo de Serviço de Mapa
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setServiceType('wms')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      serviceType === 'wms'
-                        ? 'border-red-600 bg-red-50/70 text-red-950 shadow-xs ring-1 ring-red-600/30'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs">OGC WMS</span>
-                      <Radio className={`w-3.5 h-3.5 ${serviceType === 'wms' ? 'text-red-600' : 'text-slate-400'}`} />
-                    </div>
-                    <span className="text-[10px] text-slate-500 leading-tight">
-                      Web Map Service (GeoServer, MapServer, IDEs)
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setServiceType('xyz')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      serviceType === 'xyz'
-                        ? 'border-red-600 bg-red-50/70 text-red-950 shadow-xs ring-1 ring-red-600/30'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs">XYZ Tile</span>
-                      <Layers className={`w-3.5 h-3.5 ${serviceType === 'xyz' ? 'text-red-600' : 'text-slate-400'}`} />
-                    </div>
-                    <span className="text-[10px] text-slate-500 leading-tight">
-                      Tiles pré-renderizados ({'{z}/{x}/{y}.png'})
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setServiceType('geojson')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      serviceType === 'geojson'
-                        ? 'border-red-600 bg-red-50/70 text-red-950 shadow-xs ring-1 ring-red-600/30'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs">GeoJSON / WFS</span>
-                      <Database className={`w-3.5 h-3.5 ${serviceType === 'geojson' ? 'text-red-600' : 'text-slate-400'}`} />
-                    </div>
-                    <span className="text-[10px] text-slate-500 leading-tight">
-                      URL de API REST ou WFS vetorial
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Layer Name */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Nome de Identificação da Camada
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: DataGeo - Zoneamento Ambiental SP"
-                  value={layerName}
-                  onChange={(e) => setLayerName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600/30 transition-colors"
-                  required
-                />
-              </div>
-
-              {/* URL */}
-              {/* URL */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    URL do Servidor / Endpoint Base
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-800">
+                    URL do Serviço de Mapa (WMS, XYZ ou GeoJSON) *
                   </label>
-                  {serviceType === 'wms' && serviceUrl.includes('?') && (
+                  {serviceUrl.includes('?') && serviceType === 'wms' && (
                     <button
                       type="button"
                       onClick={handleSanitizeUrl}
                       className="text-[10px] text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
-                      title="Remove parâmetros de consulta (?request=...) e deixa apenas a URL base"
+                      title="Remove parâmetros de consulta (?request=...) e deixa apenas a URL base limpa"
                     >
                       <Wand2 className="w-3 h-3 text-amber-600" />
-                      <span>Limpar Parâmetros (?...) da URL Base</span>
+                      <span>Limpar Parâmetros (?...)</span>
                     </button>
                   )}
                 </div>
-                <input
-                  type="url"
-                  placeholder={
-                    serviceType === 'wms'
-                      ? 'Ex: https://datageo.ambiente.sp.gov.br/geoserver/datageo/wms'
-                      : serviceType === 'xyz'
-                      ? 'Ex: https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-                      : 'Ex: https://meuservidor.com/api/feicoes.geojson'
-                  }
-                  value={serviceUrl}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600/30 transition-colors"
-                  required
-                />
-                <p className="text-[10px] text-slate-500 mt-1">
-                  {serviceType === 'wms' && 'Dica: Cole apenas o endpoint base (sem ?REQUEST=GetCapabilities ou ?REQUEST=GetMap). O Leaflet anexa os parâmetros de visualização automaticamente.'}
-                </p>
-              </div>
 
-              {/* Mixed Content Warning */}
-              {isMixedContent && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2.5">
-                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[11px] text-amber-900 mb-0.5">
-                      Alerta de Conteúdo Misto (HTTP em aplicação HTTPS):
-                    </p>
-                    <p className="text-[11px] text-amber-700 leading-relaxed mb-2">
-                      Sua URL utiliza o protocolo não seguro <code>http://</code>. Navegadores bloqueiam conexões HTTP dentro de páginas HTTPS seguras, o que impedirá os ladrilhos do mapa de carregarem.
-                    </p>
+                <div className="relative">
+                  <input
+                    type="url"
+                    placeholder="Cole aqui a URL (ex: https://datageo.ambiente.sp.gov.br/geoserver/datageo/wms ou https://tile.openstreetmap.org/{z}/{x}/{y}.png)"
+                    value={serviceUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600/30 transition-all shadow-inner"
+                    required
+                  />
+                  {serviceUrl && (
                     <button
                       type="button"
-                      onClick={handleConvertUrlToHttps}
-                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-[10px] transition-colors cursor-pointer"
+                      onClick={() => {
+                        setServiceUrl('');
+                        setLayerName('');
+                        setWmsLayers('');
+                        setInspectMessage(null);
+                        setDiscoveredLayers([]);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                      title="Limpar campo"
                     >
-                      Converter para HTTPS (https://...)
+                      <X className="w-3.5 h-3.5" />
                     </button>
-                  </div>
+                  )}
                 </div>
-              )}
 
-              {/* WMS-Specific Parameters */}
-              {serviceType === 'wms' && (
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                      <Radio className="w-3.5 h-3.5 text-red-600" />
-                      <span>Parâmetros OGC WMS</span>
+                {/* Status e Badge de Auto-Detecção em Tempo Real */}
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  {serviceUrl.trim() ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {serviceType === 'wms' ? (
+                          <>
+                            <Radio className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>OGC WMS detectado</span>
+                            {wmsLayers && <span className="font-mono text-emerald-950 font-bold ml-1">({wmsLayers})</span>}
+                          </>
+                        ) : serviceType === 'xyz' ? (
+                          <>
+                            <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Mosaico XYZ Tiles detectado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Database className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Vetor GeoJSON / REST detectado</span>
+                          </>
+                        )}
+                      </span>
+
+                      {/* Alerta de Mixed Content quando aplicável */}
+                      {isMixedContent && (
+                        <button
+                          type="button"
+                          onClick={handleConvertUrlToHttps}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300 cursor-pointer transition-colors"
+                          title="Clique para converter de http:// para https://"
+                        >
+                          <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Converter para HTTPS (recomendado)</span>
+                        </button>
+                      )}
                     </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      <span>Cole qualquer URL WMS, XYZ ou GeoJSON. O tipo e parâmetros são reconhecidos automaticamente.</span>
+                    </span>
+                  )}
 
-                    {/* GetCapabilities Inspection Button */}
+                  {/* Botão de GetCapabilities quando o serviço for WMS */}
+                  {serviceType === 'wms' && serviceUrl.trim() && (
                     <button
                       type="button"
                       onClick={handleInspectCapabilities}
-                      disabled={isInspecting || !serviceUrl.trim()}
-                      className="px-2.5 py-1 bg-white hover:bg-red-50 text-red-700 border border-red-200 hover:border-red-300 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-                      title="Consulta o GetCapabilities no servidor para listar as camadas disponíveis"
+                      disabled={isInspecting}
+                      className="px-2.5 py-1 bg-white hover:bg-red-50 text-red-700 border border-red-200 hover:border-red-300 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+                      title="Consulta o GetCapabilities no servidor para listar camadas disponíveis"
                     >
                       {isInspecting ? (
                         <>
                           <Loader2 className="w-3 h-3 animate-spin text-red-600" />
-                          <span>Consultando...</span>
+                          <span>Buscando camadas...</span>
                         </>
                       ) : (
                         <>
                           <Search className="w-3 h-3 text-red-600" />
-                          <span>Inspecionar Camadas (GetCapabilities)</span>
+                          <span>Buscar Camadas no Servidor</span>
                         </>
                       )}
                     </button>
-                  </div>
-
-                  {/* Inspection Feedback Message */}
-                  {inspectMessage && (
-                    <div className={`p-2.5 rounded-lg text-[11px] border leading-relaxed ${
-                      inspectMessage.type === 'success'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                        : inspectMessage.type === 'warning'
-                        ? 'bg-amber-50 border-amber-200 text-amber-800'
-                        : 'bg-blue-50 border-blue-200 text-blue-800'
-                    }`}>
-                      {inspectMessage.text}
-                    </div>
                   )}
-
-                  {/* Discovered Layers Dropdown (If parsed from GetCapabilities) */}
-                  {discoveredLayers.length > 0 && (
-                    <div className="bg-white p-2.5 rounded-lg border border-red-200 space-y-1.5 animate-in fade-in">
-                      <label className="block text-[11px] font-bold text-red-950">
-                        Selecione uma das camadas encontradas no servidor:
-                      </label>
-                      <select
-                        onChange={(e) => {
-                          const selected = discoveredLayers.find(l => l.name === e.target.value);
-                          if (selected) {
-                            setWmsLayers(selected.name);
-                            if (!layerName || layerName === 'Nova Camada Web') {
-                              setLayerName(selected.title || selected.name);
-                            }
-                          }
-                        }}
-                        defaultValue=""
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 font-mono focus:outline-none focus:border-red-600 cursor-pointer"
-                      >
-                        <option value="" disabled>-- Clique para selecionar uma camada ({discoveredLayers.length} disponíveis) --</option>
-                        {discoveredLayers.map((l, idx) => (
-                          <option key={idx} value={l.name}>
-                            {l.name} — {l.title}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Nome da Camada (LAYERS) *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ex: datageo:VWM_LIMITE_MUNICIPAL_2020_IGC"
-                        value={wmsLayers}
-                        onChange={(e) => setWmsLayers(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:border-red-600"
-                        required
-                      />
-                      <span className="text-[10px] text-slate-400 mt-0.5 block">
-                        Identificador exato no GeoServer (workspace:camada).
-                      </span>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Formato de Imagem (FORMAT)
-                      </label>
-                      <select
-                        value={wmsFormat}
-                        onChange={(e) => setWmsFormat(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-red-600 cursor-pointer"
-                      >
-                        <option value="image/png">image/png (Transparência recomendada)</option>
-                        <option value="image/jpeg">image/jpeg (Sem transparência)</option>
-                        <option value="image/png8">image/png8 (Leve / Paletizado)</option>
-                      </select>
-                      <span className="text-[10px] text-slate-400 mt-0.5 block">
-                        PNG permite sobreposição transparente.
-                      </span>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Versão WMS
-                      </label>
-                      <select
-                        value={wmsVersion}
-                        onChange={(e) => setWmsVersion(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-red-600 cursor-pointer"
-                      >
-                        <option value="1.1.1">WMS 1.1.1 (Recomendado / Universal Leaflet)</option>
-                        <option value="1.3.0">WMS 1.3.0</option>
-                      </select>
-                      <span className="text-[10px] text-slate-400 mt-0.5 block">
-                        WMS 1.1.1 evita inversão de eixos Lat/Lon.
-                      </span>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Atribuição / Fonte
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ex: DataGeo / SIMA SP"
-                        value={attribution}
-                        onChange={(e) => setAttribution(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-red-600"
-                      />
-                      <span className="text-[10px] text-slate-400 mt-0.5 block">
-                        Texto de créditos exibido no canto inferior.
-                      </span>
-                    </div>
-                  </div>
                 </div>
-              )}
 
-              {/* Technical Guide Accordion */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+                {/* Mensagem de Inspeção */}
+                {inspectMessage && (
+                  <div className={`mt-2 p-2.5 rounded-xl text-[11px] border leading-relaxed ${
+                    inspectMessage.type === 'success'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : inspectMessage.type === 'warning'
+                      ? 'bg-amber-50 border-amber-200 text-amber-800'
+                      : 'bg-blue-50 border-blue-200 text-blue-800'
+                  }`}>
+                    {inspectMessage.text}
+                  </div>
+                )}
+
+                {/* Dropdown de Camadas Descobertas */}
+                {discoveredLayers.length > 0 && (
+                  <div className="mt-2.5 bg-white p-3 rounded-xl border border-red-200 space-y-1.5 shadow-xs animate-in fade-in">
+                    <label className="block text-[11px] font-bold text-slate-800">
+                      Selecione uma das camadas encontradas no servidor ({discoveredLayers.length}):
+                    </label>
+                    <select
+                      onChange={(e) => {
+                        const selected = discoveredLayers.find(l => l.name === e.target.value);
+                        if (selected) {
+                          setWmsLayers(selected.name);
+                          if (!layerName || layerName === 'Nova Camada Web' || layerName.startsWith('Serviço')) {
+                            setLayerName(selected.title || selected.name);
+                          }
+                        }
+                      }}
+                      value={wmsLayers}
+                      className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 font-mono focus:outline-none focus:border-red-600 cursor-pointer"
+                    >
+                      <option value="" disabled>-- Clique para selecionar uma camada disponível --</option>
+                      {discoveredLayers.map((l, idx) => (
+                        <option key={idx} value={l.name}>
+                          {l.title ? `${l.title} (${l.name})` : l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Nome da Camada (Segundo Campo Essencial) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Nome da Camada no Mapa *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: DataGeo - Limites Municipais ou Mosaico Satélite"
+                  value={layerName}
+                  onChange={(e) => setLayerName(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600/30 transition-colors shadow-inner"
+                  required
+                />
+              </div>
+
+              {/* Gaveta Retrátil de Opções Avançadas (Fechada por padrão) */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50 transition-all">
                 <button
                   type="button"
-                  onClick={() => setShowTechnicalGuide(!showTechnicalGuide)}
-                  className="w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs font-bold text-slate-700 hover:text-red-700 hover:bg-slate-100/70 transition-colors cursor-pointer"
+                  onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                  className="w-full px-4 py-2.5 flex items-center justify-between text-left text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100/70 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <HelpCircle className="w-4 h-4 text-red-600 shrink-0" />
-                    <span>Entenda por que conexões WMS podem falhar (Guia GIS)</span>
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Opções Avançadas (Versão, Formato, Opacidade, Atribuição)</span>
                   </div>
-                  {showTechnicalGuide ? (
+                  {showAdvancedOptions ? (
                     <ChevronUp className="w-4 h-4 text-slate-400" />
                   ) : (
                     <ChevronDown className="w-4 h-4 text-slate-400" />
                   )}
                 </button>
 
-                {showTechnicalGuide && (
-                  <div className="p-3.5 pt-0 text-[11px] text-slate-600 space-y-2 border-t border-slate-200/80 bg-white leading-relaxed">
-                    <p>
-                      <strong>1. URL Base vs. GetCapabilities:</strong> No Leaflet, a URL informada deve ser apenas o endpoint base (ex: <code>https://servidor.sp.gov.br/geoserver/wms</code>). Se você colar parâmetros como <code>?service=WMS&request=GetCapabilities</code>, os parâmetros serão duplicados e o GeoServer rejeitará a requisição de imagem.
-                    </p>
-                    <p>
-                      <strong>2. Parâmetro LAYERS:</strong> Deve ser o identificador técnico exato cadastrado no servidor (ex: <code>workspace:nome_da_camada</code>), respeitando maiúsculas e minúsculas. Não use o título legível da camada.
-                    </p>
-                    <p>
-                      <strong>3. Bloqueio de Conteúdo Misto (Mixed Content):</strong> Se a aplicação web estiver rodando em <code>https://</code>, navegadores modernos bloqueiam automaticamente qualquer requisição para servidores <code>http://</code> inseguros.
-                    </p>
-                    <p>
-                      <strong>4. Projeções Cartográficas (CRS / SRS):</strong> O Leaflet solicita os blocos em <code>EPSG:3857</code> (Web Mercator) ou <code>EPSG:4326</code>. Se o GeoServer remoto estiver configurado apenas para <code>EPSG:4674</code> (SIRGAS 2000) sem reprojeção dinâmica habilitada, ele retornará erro de projeção.
-                    </p>
-                    <p>
-                      <strong>5. Bloqueio CORS e Firewalls:</strong> Servidores estaduais ou municipais antigos frequentemente bloqueiam requisições de outras origens ou estão fora do ar temporariamente.
-                    </p>
+                {showAdvancedOptions && (
+                  <div className="p-4 pt-2.5 space-y-3.5 border-t border-slate-200/80 bg-white">
+                    {/* Seletor Manual de Tipo caso queira forçar */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Tipo de Serviço
+                        </label>
+                        <select
+                          value={serviceType}
+                          onChange={(e) => setServiceType(e.target.value as LayerServiceType)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-red-600 cursor-pointer"
+                        >
+                          <option value="wms">OGC WMS (GeoServer / MapServer)</option>
+                          <option value="xyz">XYZ Tile Server ({'{z}/{x}/{y}'})</option>
+                          <option value="geojson">GeoJSON / API REST</option>
+                        </select>
+                      </div>
+
+                      {serviceType === 'wms' && (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Nome Técnico da Camada (LAYERS) *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Ex: workspace:camada"
+                            value={wmsLayers}
+                            onChange={(e) => setWmsLayers(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:border-red-600"
+                          />
+                        </div>
+                      )}
+
+                      {serviceType === 'wms' && (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Versão OGC WMS
+                          </label>
+                          <select
+                            value={wmsVersion}
+                            onChange={(e) => setWmsVersion(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-red-600 cursor-pointer"
+                          >
+                            <option value="1.1.1">WMS 1.1.1 (Padrão Universal Leaflet)</option>
+                            <option value="1.3.0">WMS 1.3.0</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {serviceType === 'wms' && (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Formato de Imagem (FORMAT)
+                          </label>
+                          <select
+                            value={wmsFormat}
+                            onChange={(e) => setWmsFormat(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-red-600 cursor-pointer"
+                          >
+                            <option value="image/png">image/png (Com transparência recomendada)</option>
+                            <option value="image/jpeg">image/jpeg (Sem transparência)</option>
+                            <option value="image/png8">image/png8 (Leve / Paletizado)</option>
+                          </select>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Texto de Atribuição / Créditos
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ex: DataGeo / SIMA SP / IBGE"
+                          value={attribution}
+                          onChange={(e) => setAttribution(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:border-red-600"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Slider de Opacidade Inicial */}
+                    <div className="flex items-center gap-3 pt-1">
+                      <span className="text-[11px] font-semibold text-slate-700 w-28">
+                        Opacidade inicial:
+                      </span>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="1.0"
+                        step="0.05"
+                        value={opacity}
+                        onChange={(e) => setOpacity(parseFloat(e.target.value))}
+                        className="flex-1 accent-red-600 cursor-pointer"
+                      />
+                      <span className="text-xs font-mono font-bold text-slate-700 w-12 text-right">
+                        {Math.round(opacity * 100)}%
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Opacity Slider */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-slate-700 w-28">
-                  Opacidade inicial:
-                </span>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1.0"
-                  step="0.05"
-                  value={opacity}
-                  onChange={(e) => setOpacity(parseFloat(e.target.value))}
-                  className="flex-1 accent-red-600 cursor-pointer"
-                />
-                <span className="text-xs font-mono font-bold text-slate-700 w-12 text-right">
-                  {Math.round(opacity * 100)}%
-                </span>
-              </div>
-
+              {/* Alerta de Erro */}
               {errorMsg && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
@@ -1014,6 +1030,7 @@ export const WmsModal: React.FC<WmsModalProps> = ({
                 </div>
               )}
 
+              {/* Botões de Ação */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
@@ -1025,10 +1042,13 @@ export const WmsModal: React.FC<WmsModalProps> = ({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-1.5 cursor-pointer shadow-md shadow-red-600/20 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-red-600/20 disabled:opacity-50"
                 >
                   {isLoading ? (
-                    <span>Conectando...</span>
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Conectando...</span>
+                    </>
                   ) : (
                     <>
                       <Plus className="w-4 h-4" />

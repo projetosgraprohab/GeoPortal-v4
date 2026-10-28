@@ -18,7 +18,6 @@ interface NavbarProps {
   hasUnpublishedChanges?: boolean;
   isUnlocked?: boolean;
   onUnlockSession?: () => void;
-  onLockSession?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({

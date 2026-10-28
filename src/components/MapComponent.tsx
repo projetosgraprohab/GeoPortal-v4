@@ -16,6 +16,7 @@ import {
   Compass, MapPin, Layers, ChevronDown
 , Ruler, Trash2, X } from 'lucide-react';
 import * as turf from '@turf/turf';
+import { decimalToDms, geographicToUtm } from '../utils/coordinateParser';
 
 import { MapToolbar } from './MapToolbar';
 
@@ -899,6 +900,108 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     }, 5000);
   };
 
+  const coordMarkerRef = useRef<L.LayerGroup | null>(null);
+
+  const handleCoordinateFlyTo = (lat: number, lng: number, label?: string) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    map.flyTo([lat, lng], 17, { duration: 1.5 });
+
+    // Remove previous coordinate marker if any
+    if (coordMarkerRef.current) {
+      try {
+        map.removeLayer(coordMarkerRef.current);
+      } catch (e) {
+        console.warn('Erro ao remover marcador anterior:', e);
+      }
+      coordMarkerRef.current = null;
+    }
+
+    const group = L.layerGroup();
+    const dmsLat = decimalToDms(lat, true);
+    const dmsLng = decimalToDms(lng, false);
+    const utm = geographicToUtm(lat, lng);
+
+    // Pulse circle
+    L.circle([lat, lng], {
+      radius: 40,
+      color: '#dc2626',
+      fillColor: '#dc2626',
+      fillOpacity: 0.15,
+      weight: 1.5
+    }).addTo(group);
+
+    // Center point marker
+    const marker = L.circleMarker([lat, lng], {
+      radius: 7,
+      fillColor: '#dc2626',
+      color: '#ffffff',
+      weight: 2.5,
+      fillOpacity: 1
+    }).addTo(group);
+
+    const popupContent = `
+      <div style="font-family: inherit; padding: 10px 12px; min-width: 250px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-weight: 700; font-size: 13px; color: #0f172a;">Ponto de Coordenada</span>
+          </div>
+          <span style="font-size: 10px; background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${label?.includes('UTM') ? 'UTM / SIRGAS 2000' : 'GMS / DD'}</span>
+        </div>
+        <div style="margin-bottom: 6px;">
+          <div style="font-size: 10px; color: #64748b; font-weight: 600;">Graus, Minutos e Segundos (GMS):</div>
+          <div style="font-size: 11px; font-weight: 700; color: #0f172a; font-family: monospace;">${dmsLat}<br/>${dmsLng}</div>
+        </div>
+        <div style="margin-bottom: 6px;">
+          <div style="font-size: 10px; color: #64748b; font-weight: 600;">Graus Decimais (DD):</div>
+          <div style="font-size: 11px; font-weight: 600; color: #0f172a; font-family: monospace;">Lat: ${lat}°<br/>Lng: ${lng}°</div>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <div style="font-size: 10px; color: #64748b; font-weight: 600;">UTM SIRGAS 2000 (Fuso ${utm.zone}S):</div>
+          <div style="font-size: 11px; font-weight: 600; color: #0284c7; font-family: monospace;">X: ${utm.easting.toLocaleString('pt-BR')} m • Y: ${utm.northing.toLocaleString('pt-BR')} m</div>
+        </div>
+        <div style="display: flex; gap: 6px; border-top: 1px solid #f1f5f9; padding-top: 6px;">
+          <button id="btn-copy-coord-popup" style="flex: 1; padding: 4px 8px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 11px; font-weight: 600; color: #334155; cursor: pointer;">
+            Copiar Coordenadas
+          </button>
+          <button id="btn-remove-coord-popup" style="padding: 4px 8px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; font-size: 11px; font-weight: 600; color: #dc2626; cursor: pointer;">
+            Remover
+          </button>
+        </div>
+      </div>
+    `;
+
+    marker.bindPopup(popupContent, { className: 'custom-gis-popup' }).openPopup();
+
+    group.addTo(map);
+    coordMarkerRef.current = group;
+
+    // Attach listeners for popup buttons
+    setTimeout(() => {
+      const copyBtn = document.getElementById('btn-copy-coord-popup');
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          const textToCopy = `${dmsLat}, ${dmsLng} (${lat}, ${lng}) - UTM ${utm.zone}S: X=${utm.easting}, Y=${utm.northing}`;
+          navigator.clipboard.writeText(textToCopy);
+          copyBtn.innerText = 'Copiado!';
+          setTimeout(() => {
+            if (copyBtn) copyBtn.innerText = 'Copiar Coordenadas';
+          }, 2000);
+        };
+      }
+      const removeBtn = document.getElementById('btn-remove-coord-popup');
+      if (removeBtn) {
+        removeBtn.onclick = () => {
+          if (coordMarkerRef.current && mapInstanceRef.current) {
+            mapInstanceRef.current.removeLayer(coordMarkerRef.current);
+            coordMarkerRef.current = null;
+          }
+        };
+      }
+    }, 150);
+  };
+
   // Coherent metrics calculation for Top-Left HUD (Nº DE LOTES UNIDADES HABITACIONAIS & ÁREA TOTAL DA GLEBA/M²)
   const mapMetrics = useMemo(() => {
     const visibleFeatures: GeoJSON.Feature[] = [];
@@ -918,6 +1021,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
       <MapToolbar 
         onFlyTo={handleAddressFlyTo}
+        onSearchCoordinate={handleCoordinateFlyTo}
         activeBasemap={activeBasemap}
         onSelectBasemap={onSelectBasemap}
         onLocateMe={handleLocateMe}
